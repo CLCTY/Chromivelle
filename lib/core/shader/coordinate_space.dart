@@ -1,23 +1,7 @@
-// ============================================================================
-// lib/core/shader/coordinate_space.dart
-//
-// 视口管理 —— 缩放/平移的正确性都在这里。
-//
-// 核心原则(踩过的坑):
-//   不要用 Transform.scale 去缩放整个 widget。
-//   那会把 shader 已经渲染完的结果整体放大 —— 缩放时画面会糊掉,
-//   因为插值发生在放大之后,而不是采样之前。
-//
-// 正确做法:缩放"喂给 shader 的采样坐标",让采样发生在正确位置。
-//   1. 用 Matrix4 记录视口变换(缩放 + 平移)
-//   2. paint() 里对它求逆,得到 图像空间 -> 屏幕空间 的映射
-//   3. 把逆矩阵作为 uniform 传给 shader
-//   4. shader 用它算 UV
-//
-// 这样无论怎么缩放,采样点都在原始像素上,画面始终锐利。
-// ============================================================================
+// Viewport scaling and coordinate conversion utilities.
 
 import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 
 class CoordinateSpace {
@@ -77,9 +61,19 @@ class CoordinateSpace {
       // 先平移回原点
       ..translateByDouble(-baseOffset.dx, -baseOffset.dy, 0, 1)
       // 用户变换(缩放围绕视口中心,再平移)
-      ..translateByDouble(_viewportSize.width / 2, _viewportSize.height / 2, 0, 1)
+      ..translateByDouble(
+        _viewportSize.width / 2,
+        _viewportSize.height / 2,
+        0,
+        1,
+      )
       ..scaleByDouble(_scale, _scale, _scale, 1)
-      ..translateByDouble(-_viewportSize.width / 2, -_viewportSize.height / 2, 0, 1)
+      ..translateByDouble(
+        -_viewportSize.width / 2,
+        -_viewportSize.height / 2,
+        0,
+        1,
+      )
       ..translateByDouble(_translation.dx, _translation.dy, 0, 1);
   }
 
@@ -98,9 +92,19 @@ class CoordinateSpace {
     );
     m
       ..translateByDouble(baseOffset.dx, baseOffset.dy, 0, 1)
-      ..translateByDouble(_viewportSize.width / 2, _viewportSize.height / 2, 0, 1)
+      ..translateByDouble(
+        _viewportSize.width / 2,
+        _viewportSize.height / 2,
+        0,
+        1,
+      )
       ..scaleByDouble(_scale, _scale, _scale, 1)
-      ..translateByDouble(-_viewportSize.width / 2, -_viewportSize.height / 2, 0, 1)
+      ..translateByDouble(
+        -_viewportSize.width / 2,
+        -_viewportSize.height / 2,
+        0,
+        1,
+      )
       ..translateByDouble(_translation.dx, _translation.dy, 0, 1);
     return m;
   }

@@ -1,15 +1,4 @@
-// ============================================================================
-// lib/data/model/edit_command.dart
-//
-// 非破坏性编辑的数据模型。
-//
-// 核心思想:编辑操作不直接改像素,而是记录成指令。
-// 好处:
-//   - 撤销/重做天然实现(指令栈)
-//   - 预览与导出共用同一套参数,保证所见即所得
-//   - 预设可以序列化成 JSON
-//   - GPU 管线本身就是 re-render 架构,每帧从当前状态重建 uniform 即可
-// ============================================================================
+// Immutable parameters shared by preview and export.
 
 import 'dart:math' as math;
 
@@ -155,12 +144,17 @@ class AdjustParams {
       enableBW: json['enableBW'] as bool? ?? false,
       bwChannel: json['bwChannel'] as int? ?? 0,
       bwWeights:
-          (json['bwWeights'] as List?)?.map((e) => (e as num).toDouble()).toList() ??
+          (json['bwWeights'] as List?)
+              ?.map((e) => (e as num).toDouble())
+              .toList() ??
           const [1.0, 1.0, 1.0],
       enableHSL: json['enableHSL'] as bool? ?? false,
       hslZones: (json['hslZones'] as Map<String, dynamic>? ?? {}).map(
         (k, v) => MapEntry(
-          HslZone.values.firstWhere((e) => e.name == k, orElse: () => HslZone.red),
+          HslZone.values.firstWhere(
+            (e) => e.name == k,
+            orElse: () => HslZone.red,
+          ),
           HslAdjustment.fromJson(Map<String, dynamic>.from(v as Map)),
         ),
       ),
@@ -176,7 +170,11 @@ enum HslZone { red, yellow, green, cyan, blue, magenta }
 
 @immutable
 class HslAdjustment {
-  const HslAdjustment({this.saturation = 0.0, this.luminance = 0.0, this.hue = 0.0});
+  const HslAdjustment({
+    this.saturation = 0.0,
+    this.luminance = 0.0,
+    this.hue = 0.0,
+  });
 
   final double saturation; // -1..1
   final double luminance; // -1..1
@@ -194,8 +192,11 @@ class HslAdjustment {
     );
   }
 
-  Map<String, dynamic> toJson() =>
-      {'saturation': saturation, 'luminance': luminance, 'hue': hue};
+  Map<String, dynamic> toJson() => {
+    'saturation': saturation,
+    'luminance': luminance,
+    'hue': hue,
+  };
 
   static HslAdjustment fromJson(Map<String, dynamic> json) => HslAdjustment(
     saturation: (json['saturation'] as num?)?.toDouble() ?? 0,
@@ -297,7 +298,9 @@ class SelectiveColorParams {
       featherPower: (json['featherPower'] as num?)?.toDouble() ?? 1.0,
       enableColorize: json['enableColorize'] as bool? ?? false,
       colorizeTarget:
-          (json['colorizeTarget'] as List?)?.map((e) => (e as num).toDouble()).toList() ??
+          (json['colorizeTarget'] as List?)
+              ?.map((e) => (e as num).toDouble())
+              .toList() ??
           const [0.2, 0.6, 0.3],
     );
   }
@@ -456,16 +459,24 @@ class EditState {
     'adjust': adjust.toJson(),
     'selectiveColor': selectiveColor.toJson(),
     'geometry': geometry.toJson(),
-    'lut': {'enabled': lut.enabled, 'assetPath': lut.assetPath, 'intensity': lut.intensity},
+    'lut': {
+      'enabled': lut.enabled,
+      'assetPath': lut.assetPath,
+      'intensity': lut.intensity,
+    },
   };
 
   static EditState fromJson(Map<String, dynamic> json) {
     return EditState(
-      adjust: AdjustParams.fromJson(Map<String, dynamic>.from(json['adjust'] ?? {})),
+      adjust: AdjustParams.fromJson(
+        Map<String, dynamic>.from(json['adjust'] ?? {}),
+      ),
       selectiveColor: SelectiveColorParams.fromJson(
         Map<String, dynamic>.from(json['selectiveColor'] ?? {}),
       ),
-      geometry: GeometryTransform.fromJson(Map<String, dynamic>.from(json['geometry'] ?? {})),
+      geometry: GeometryTransform.fromJson(
+        Map<String, dynamic>.from(json['geometry'] ?? {}),
+      ),
       lut: LutParams(
         enabled: (json['lut'] as Map?)?['enabled'] as bool? ?? false,
         assetPath: (json['lut'] as Map?)?['assetPath'] as String?,

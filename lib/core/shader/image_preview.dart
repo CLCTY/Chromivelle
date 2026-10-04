@@ -8,6 +8,7 @@ import '../../data/model/edit_command.dart';
 import 'shader_registry.dart';
 import 'uniform_block.dart';
 import 'preview_transform.dart';
+import 'adjust_uniforms.dart';
 
 class ImagePreview extends StatefulWidget {
   const ImagePreview({
@@ -25,7 +26,7 @@ class ImagePreview extends StatefulWidget {
 
 class _ImagePreviewState extends State<ImagePreview> {
   ui.FragmentShader? _shader;
-  final Float32List _adjustUniforms = AdjustUniforms.create();
+  Float32List _adjustUniforms = AdjustUniforms.create();
   double _zoom = 1, _startZoom = 1;
   Offset _pan = Offset.zero, _anchor = Offset.zero;
   Offset _doubleTapPosition = Offset.zero;
@@ -64,80 +65,6 @@ class _ImagePreviewState extends State<ImagePreview> {
     super.dispose();
   }
 
-  /// 把 [EditState] 写进 uniform buffer。
-  ///
-  /// ⚠️ 槽位索引必须与 uniform_block.dart 的常量对应。
-  void _updateUniforms(Size size) {
-    final a = widget.state.adjust;
-    final s = widget.state.selectiveColor;
-
-    // --- adjust.frag ---
-    final au = _adjustUniforms;
-    au[AdjustUniforms.brightness] = a.brightness;
-    au[AdjustUniforms.contrast] = a.contrast;
-    au[AdjustUniforms.saturation] = a.saturation;
-    au[AdjustUniforms.hue] = a.hue;
-    au[AdjustUniforms.exposure] = a.exposure;
-    au[AdjustUniforms.temperature] = a.temperature;
-    au[AdjustUniforms.tint] = a.tint;
-    au[AdjustUniforms.highlights] = a.highlights;
-    au[AdjustUniforms.shadows] = a.shadows;
-    au[AdjustUniforms.enableBW] = a.enableBW ? 1.0 : 0.0;
-    au[AdjustUniforms.bwChannel] = a.bwChannel.toDouble();
-
-    au[AdjustUniforms.resolution] = size.width;
-    au[AdjustUniforms.resolution + 1] = size.height;
-    au[AdjustUniforms.aspectRatio] = size.width / size.height;
-
-    au[AdjustUniforms.bwWeights] = a.bwWeights[0];
-    au[AdjustUniforms.bwWeights + 1] = a.bwWeights[1];
-    au[AdjustUniforms.bwWeights + 2] = a.bwWeights[2];
-
-    void writeHsl(int base, HslAdjustment adj) {
-      au[base] = adj.saturation;
-      au[base + 1] = adj.luminance;
-      au[base + 2] = adj.hue;
-    }
-
-    writeHsl(
-      AdjustUniforms.hslRed,
-      a.hslZones[HslZone.red] ?? HslAdjustment.neutral,
-    );
-    writeHsl(
-      AdjustUniforms.hslYellow,
-      a.hslZones[HslZone.yellow] ?? HslAdjustment.neutral,
-    );
-    writeHsl(
-      AdjustUniforms.hslGreen,
-      a.hslZones[HslZone.green] ?? HslAdjustment.neutral,
-    );
-    writeHsl(
-      AdjustUniforms.hslCyan,
-      a.hslZones[HslZone.cyan] ?? HslAdjustment.neutral,
-    );
-    writeHsl(
-      AdjustUniforms.hslBlue,
-      a.hslZones[HslZone.blue] ?? HslAdjustment.neutral,
-    );
-    writeHsl(
-      AdjustUniforms.hslMagenta,
-      a.hslZones[HslZone.magenta] ?? HslAdjustment.neutral,
-    );
-    au[AdjustUniforms.enableHSL] = a.enableHSL ? 1.0 : 0.0;
-
-    au[AdjustUniforms.selectiveEnabled] = s.enabled ? 1 : 0;
-    au[AdjustUniforms.targetHue] = s.targetHue;
-    au[AdjustUniforms.hueTolerance] = s.hueTolerance;
-    au[AdjustUniforms.softness] = s.softness;
-    au[AdjustUniforms.keepSaturation] = s.keepSaturation;
-    au[AdjustUniforms.blackStrength] = s.blackStrength;
-    au[AdjustUniforms.featherPower] = s.featherPower;
-    au[AdjustUniforms.enableColorize] = s.enableColorize ? 1 : 0;
-    for (var i = 0; i < 3; i++) {
-      au[AdjustUniforms.colorizeTarget + i] = s.colorizeTarget[i];
-    }
-  }
-
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
@@ -146,7 +73,7 @@ class _ImagePreviewState extends State<ImagePreview> {
         widget.image.width.toDouble(),
         widget.image.height.toDouble(),
       );
-      _updateUniforms(image);
+      _adjustUniforms = buildAdjustUniforms(widget.state, image);
       final transform = PreviewTransform.matrix(
         viewport: viewport,
         image: image,

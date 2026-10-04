@@ -1,11 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../ui/motion_tile.dart';
 import 'editor_settings.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
+
+  static final _repository = Uri.parse('https://github.com/CLCTY/Chromivelle');
+
+  Future<void> _openRepository(BuildContext context) async {
+    try {
+      if (await launchUrl(_repository, mode: LaunchMode.externalApplication)) {
+        return;
+      }
+    } catch (_) {
+      // Offer the same fallback if the platform cannot handle the link.
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('无法打开仓库，可以复制链接后访问'),
+        action: SnackBarAction(
+          label: '复制链接',
+          onPressed: () =>
+              Clipboard.setData(ClipboardData(text: _repository.toString())),
+        ),
+      ),
+    );
+  }
 
   Future<void> _save(
     BuildContext context,
@@ -26,7 +51,7 @@ class SettingsPage extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     final controller = ref.read(settingsProvider.notifier);
     final colors = Theme.of(context).colorScheme;
-    Widget section(String title, String subtitle, List<Widget> children) =>
+    Widget section(String title, String? subtitle, List<Widget> children) =>
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -40,17 +65,18 @@ class SettingsPage extends ConsumerWidget {
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 0, 4, 14),
-              child: Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 1.6,
-                  color: colors.onSurfaceVariant,
+            if (subtitle != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 0, 4, 14),
+                child: Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.6,
+                    color: colors.onSurfaceVariant,
+                  ),
                 ),
               ),
-            ),
             Material(
               color: colors.surfaceContainerLow,
               borderRadius: BorderRadius.circular(16),
@@ -99,7 +125,7 @@ class SettingsPage extends ConsumerWidget {
                       ),
               ),
           ]),
-          section('外观与交互', '保持深色界面，让配色与交互更适合你的设备。', [
+          section('外观与交互', null, [
             SwitchListTile(
               key: const ValueKey('setting-dynamic'),
               secondary: const Icon(Icons.wallpaper_rounded),
@@ -121,6 +147,16 @@ class SettingsPage extends ConsumerWidget {
                 context,
                 () => controller.update(settings.copyWith(animations: value)),
               ),
+            ),
+          ]),
+          section('关于', null, [
+            ListTile(
+              key: const ValueKey('setting-repository'),
+              leading: const Icon(Icons.code_rounded),
+              title: const Text('GitHub 仓库'),
+              subtitle: const Text('CLCTY/Chromivelle'),
+              trailing: const Icon(Icons.open_in_new_rounded, size: 20),
+              onTap: () => _openRepository(context),
             ),
           ]),
         ],

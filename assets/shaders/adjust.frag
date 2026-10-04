@@ -1,17 +1,5 @@
-// ============================================================================
-// adjust.frag — 调色 mega-shader
-//
-// 合并了调色 / 曲线 / HSL / 黑白 到一个 pass，减少 toImage() 的管线停顿。
-// 每个功能用 uniform 开关控制，关闭时分支不会产生实际开销。
-//
-// uniform 布局必须与 lib/core/shader/uniform_block.dart 严格一致。
-// 改动任何 uniform 都要同步改那边的布局。
-//
-// ⚠️ Flutter shader 三条硬规则(实测踩坑,别凭记忆写):
-//   1. 头文件是 <flutter/runtime_effect.glsl>,不是 "dart:core/uniforms"
-//   2. sampler 必须显式声明 `uniform sampler2D xxx;`,编译器不自动注入
-//   3. 不要写 #version —— 编译器会强制成 (460, core),写了反而报 warning
-// ============================================================================
+// Combined tone, HSL, black-and-white, and selective-color adjustments.
+// Uniform layout: lib/core/shader/uniform_block.dart.
 
 #include <flutter/runtime_effect.glsl>
 

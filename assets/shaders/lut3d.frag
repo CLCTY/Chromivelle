@@ -1,13 +1,5 @@
-// ============================================================================
-// lut3d.frag — 3D LUT (.cube) 应用
-//
-// LUT 以 2D 切片图形式上传(标准做法),shader 里手算三线性插值。
-// 之所以不用硬件三线性过滤:sRGB 色彩空间下必须在线性插值,
-// 而 GPU 对 8bit 纹理默认是 sRGB 感知插值,结果会偏。
-// 所以自己算,保证颜色正确。
-//
-// uniform 布局必须与 lib/core/shader/uniform_block.dart 严格一致。
-// ============================================================================
+// Trilinear interpolation of a 3D LUT stored in a 2D texture.
+// Uniform layout: lib/core/shader/uniform_block.dart.
 
 #include <flutter/runtime_effect.glsl>
 
@@ -23,7 +15,7 @@ uniform float uAspectRatio;    // width/height
 
 out vec4 fragColor;
 
-// sRGB -> 线性(插值必须在��性空间)
+// sRGB -> 线性(插值在线性空间进行)
 vec3 srgbToLinear(vec3 c) {
   return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c));
 }

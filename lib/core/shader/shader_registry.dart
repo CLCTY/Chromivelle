@@ -1,16 +1,7 @@
-// ============================================================================
-// lib/core/shader/shader_registry.dart
-//
-// FragmentProgram 的加载与缓存。
-//
-// 关键点:
-//   FragmentProgram.fromAsset 是异步的(首次要读 asset 并反序列化 SPIR-V),
-//   但之后是同步可用的。启动时预热,避免用户第一次调参数时卡一下。
-// ============================================================================
+// Load and cache compiled fragment programs before opening the editor.
 
 import 'dart:async';
 import 'dart:ui' show FragmentProgram;
-
 
 /// 已知的 shader 资源路径,与 pubspec.yaml 的 shaders: 声明严格对应。
 abstract final class ShaderAssets {

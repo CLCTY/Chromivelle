@@ -1,7 +1,7 @@
 name: image_editor
 description: "Chromivelle — a dark, dynamic-color photo editor with live GPU previews."
 publish_to: 'none'
-version: 1.0.0+1
+version: 0.1.0+2
 
 environment:
   sdk: ^3.13.5
@@ -15,11 +15,13 @@ dependencies:
   image_picker: ^1.2.3
   dynamic_color: ^1.8.1
   shared_preferences: ^2.5.5
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  url_launcher_platform_interface: ^2.3.2
 
 flutter:
   uses-material-design: true

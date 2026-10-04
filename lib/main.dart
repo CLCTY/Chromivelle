@@ -1,12 +1,4 @@
-// ============================================================================
-// lib/main.dart
-//
-// 入口 —— M0 验证目标:能导入图片 + 实时拖动调色 + 去色留色。
-//
-// M3E 接入顺序很重要:
-//   1. 先 await shader 预热(异步,读 SPIR-V)
-//   2. 再 runApp —— 这样首帧就有 shader,不会先闪一下原图再跳变
-// ============================================================================
+// Application entry, editor state, and editing screens.
 
 import 'dart:async';
 import 'dart:ui' as ui;
@@ -16,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'core/shader/image_preview.dart';
+import 'core/shader/image_exporter.dart';
 import 'core/shader/shader_registry.dart';
 import 'data/model/edit_command.dart';
 import 'ui/m3e/m3e_adapter.dart';
@@ -49,7 +42,7 @@ Future<void> main() async {
 // 状态
 // =============================================================================
 
-/// 当前编辑状态。撤销/重做栈在 M1 补。
+/// 当前图片与调整参数。
 ///
 /// 用 Riverpod 3的 Notifier(不是已废弃的 StateNotifier)。
 class EditorController extends Notifier<EditorState> {
@@ -66,8 +59,9 @@ class EditorController extends Notifier<EditorState> {
       state = state.copyWith(edit: state.edit.copyWith(geometry: g));
 
   /// 替换图片(加载完成时)
-  void setImage(ui.Image? image) => state = EditorState(
+  void setImage(ui.Image? image, {String? sourcePath}) => state = EditorState(
     image: image,
+    sourcePath: sourcePath,
     edit: state.edit,
     isLoading: state.isLoading,
   );
@@ -94,17 +88,20 @@ class EditorController extends Notifier<EditorState> {
 class EditorState {
   const EditorState({
     this.image,
+    this.sourcePath,
     this.edit = const EditState(),
     this.isLoading = false,
   });
 
   final ui.Image? image;
+  final String? sourcePath;
   final EditState edit;
   final bool isLoading;
 
   EditorState copyWith({ui.Image? image, EditState? edit, bool? isLoading}) {
     return EditorState(
       image: image ?? this.image,
+      sourcePath: sourcePath,
       edit: edit ?? this.edit,
       isLoading: isLoading ?? this.isLoading,
     );
@@ -213,6 +210,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   HslZone _zone = HslZone.red;
   int? _lookIndex;
   double _lookStrength = 1;
+  bool _isSaving = false;
   final _tools = EditorTool.values;
 
   @override
@@ -276,12 +274,13 @@ class _EditorPageState extends ConsumerState<EditorPage> {
                 ),
           title: Row(
             children: [
-              Icon(
-                Icons.auto_awesome_rounded,
-                color: _colors.primary,
-                size: 22,
-              ),
-              const SizedBox(width: 9),
+              if (s.image == null)
+                Icon(
+                  Icons.auto_awesome_rounded,
+                  color: _colors.primary,
+                  size: 22,
+                ),
+              if (s.image == null) const SizedBox(width: 9),
               Flexible(
                 child: Text(
                   s.image == null ? 'Chromivelle' : '编辑照片',
@@ -292,6 +291,15 @@ class _EditorPageState extends ConsumerState<EditorPage> {
             ],
           ),
           actions: [
+            if (s.image != null)
+              PressMotion(
+                child: IconButton.filledTonal(
+                  key: const ValueKey('save-image'),
+                  tooltip: '保存到相册',
+                  onPressed: s.isLoading ? null : _saveImage,
+                  icon: const Icon(Icons.save_outlined),
+                ),
+              ),
             PressMotion(
               child: IconButton(
                 tooltip: '设置',
@@ -380,7 +388,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
                         children: [
                           M3e.containedLoading(),
                           const SizedBox(height: 16),
-                          const Text('正在准备照片…'),
+                          Text(_isSaving ? '正在保存到相册…' : '正在准备照片…'),
                         ],
                       ),
                     ),
@@ -404,7 +412,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '让每一张照片，\n都有自己的色彩。',
+                  '开始编辑照片',
                   style: TextStyle(
                     fontSize: 32,
                     height: 1.3,
@@ -414,7 +422,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  '调整光影 · 探索黑白 · 留住喜欢的颜色',
+                  '从相册选择图片，调整光影和色彩。',
                   style: TextStyle(
                     fontSize: 13,
                     height: 1.6,
@@ -468,38 +476,6 @@ class _EditorPageState extends ConsumerState<EditorPage> {
                             Icons.landscape_rounded,
                             size: 110,
                             color: _colors.primary,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 22,
-                        right: 24,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _colors.tertiaryContainer,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.colorize,
-                                size: 18,
-                                color: _colors.onTertiaryContainer,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '一点色彩，无限可能',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: _colors.onTertiaryContainer,
-                                ),
-                              ),
-                            ],
                           ),
                         ),
                       ),
@@ -1292,6 +1268,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
 
   Future<void> _goHome() async {
     final state = ref.read(editorProvider);
+    if (state.isLoading) return;
     if (!state.edit.isNeutral) {
       final leave = await showDialog<bool>(
         context: context,
@@ -1326,6 +1303,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   }
 
   Future<void> _pickImage(BuildContext context) async {
+    if (ref.read(editorProvider).isLoading) return;
     final file = await _picker.pickImage(source: ImageSource.gallery);
     if (file == null) return;
     await _loadImage(file);
@@ -1341,8 +1319,12 @@ class _EditorPageState extends ConsumerState<EditorPage> {
 
     try {
       final bytes = await file.readAsBytes();
-      // 预览降采样:避免 12MP+ 大图 OOM。导出时再读全分辨率(M5)。
-      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 2048);
+      // 限制预览大小；保存时重新读取原始图片。
+      final codec = await ui.instantiateImageCodec(
+        bytes,
+        targetWidth: 2048,
+        allowUpscaling: false,
+      );
       final frame = await codec.getNextFrame();
       if (!mounted) return;
       ctrl.reset();
@@ -1350,13 +1332,52 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         _lookIndex = null;
         _lookStrength = 1;
       });
-      ctrl.setImage(frame.image);
+      ctrl.setImage(frame.image, sourcePath: file.path);
       codec.dispose();
     } catch (e) {
       if (!mounted) return;
-      M3e.snackBar(context, message: '图片加载失败: $e', icon: Icons.error_outline);
+      M3e.snackBar(
+        context,
+        message: '图片加载失败，请重新选择图片',
+        icon: Icons.error_outline,
+      );
     } finally {
       if (mounted) ctrl.setLoading(false);
+    }
+  }
+
+  Future<void> _saveImage() async {
+    final snapshot = ref.read(editorProvider);
+    if (snapshot.image == null || snapshot.isLoading) return;
+    final ctrl = ref.read(editorProvider.notifier);
+    setState(() => _isSaving = true);
+    ctrl.setLoading(true);
+    try {
+      final result = await ImageExporter.render(
+        preview: snapshot.image!,
+        sourcePath: snapshot.sourcePath,
+        state: snapshot.edit,
+      );
+      await ImageExporter.saveToGallery(result);
+      if (!mounted) return;
+      M3e.snackBar(
+        context,
+        message:
+            '已保存到相册 · ${result.width} × ${result.height} · Pictures/Chromivelle',
+        icon: Icons.check_circle_outline_rounded,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      M3e.snackBar(
+        context,
+        message: '保存失败，请检查存储空间与权限后重试',
+        icon: Icons.error_outline,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ctrl.setLoading(false);
+      }
     }
   }
 

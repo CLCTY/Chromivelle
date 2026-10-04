@@ -1,31 +1,5 @@
-// ============================================================================
-// lib/core/shader/uniform_block.dart
-//
-// Uniform 槽位映射 —— 与 assets/shaders/*.frag 严格对应。
-//
-// ============================================================================
-// ⚠️ 槽位分配规则(实测纠正,这是最容易写错的地方)
-// ---------------------------------------------------------------------------
-// **不是 std140 对齐,而是紧密打包(tight packing)。**
-//
-// Flutter 的 impellerc 把 uniform "according to decoration order" 排序后,
-// 按 GLSL 声明顺序连续分配 float 槽位:
-//   - float 占 1 槽
-//   - vec2 占 2 槽
-//   - vec3 占 3 槽  ← 不是 4!
-//   - vec4 占 4 槽
-//
-// 引擎文档给的例子印证了这一点:
-//   uniform float uScale;    -> setFloat(0)
-//   uniform vec2  uMagnitude; -> setFloat(1), setFloat(2)
-//   uniform vec4  uColor;     -> setFloat(3..6)
-//
-// sampler 不占 float 槽位,用 setImageSampler(index, image) 单独绑定,
-// 索引空间独立且从 0 重新开始。
-//
-// ⚠️ 因此:改动任何 .frag 的 uniform 声明(哪怕只是调整顺序)都必须同步改这里,
-// 否则参数会静默错位 —— 不报错,只是效果全乱。
-// ============================================================================
+// Float slots follow shader declaration order, packed without std140 padding.
+// Sampler indices use a separate index space. Keep these constants in sync with GLSL.
 
 import 'dart:typed_data';
 
