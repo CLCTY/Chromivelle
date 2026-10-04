@@ -211,6 +211,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
   int? _lookIndex;
   double _lookStrength = 1;
   bool _isSaving = false;
+  double _toolDirection = 1;
   final _tools = EditorTool.values;
 
   @override
@@ -232,14 +233,14 @@ class _EditorPageState extends ConsumerState<EditorPage> {
 
   Duration get _motionDuration => MediaQuery.disableAnimationsOf(context)
       ? Duration.zero
-      : const Duration(milliseconds: 280);
+      : const Duration(milliseconds: 360);
 
   Widget _transition(Widget child, Animation<double> animation) =>
       FadeTransition(
         opacity: animation,
         child: SlideTransition(
           position: Tween<Offset>(
-            begin: const Offset(0, .035),
+            begin: const Offset(0, .08),
             end: Offset.zero,
           ).animate(animation),
           child: child,
@@ -676,31 +677,60 @@ class _EditorPageState extends ConsumerState<EditorPage> {
           ),
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
-            Text(
-              _tools[_panelIndex].label == '留色'
-                  ? '去色留色'
-                  : _tools[_panelIndex].label,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-            const Spacer(),
-            Text(
-              s.edit.isNeutral ? '原始照片' : '已调整',
-              style: TextStyle(fontSize: 11, color: _colors.onSurfaceVariant),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
         Expanded(
-          child: Material(
-            color: Colors.transparent,
+          child: ClipRect(
             child: AnimatedSwitcher(
+              key: const ValueKey('tool-panel-switcher'),
               duration: _motionDuration,
-              transitionBuilder: _transition,
-              child: KeyedSubtree(
-                key: ValueKey(_panelIndex),
-                child: _buildPanelContent(s),
+              reverseDuration: _motionDuration,
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              layoutBuilder: (current, previous) => Stack(
+                fit: StackFit.expand,
+                children: [...previous, ?current],
+              ),
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: Offset(_toolDirection * .12, 0),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                ),
+              ),
+              child: Column(
+                key: ValueKey('panel-$_panelIndex'),
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        _tools[_panelIndex].label == '留色'
+                            ? '去色留色'
+                            : _tools[_panelIndex].label,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        s.edit.isNeutral ? '原始照片' : '已调整',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: _colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: Material(
+                      color: Colors.transparent,
+                      child: _buildPanelContent(s),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -756,6 +786,7 @@ class _EditorPageState extends ConsumerState<EditorPage> {
                           ? _colors.primary.withValues(alpha: .35)
                           : Colors.transparent,
                       onTap: () => setState(() {
+                        _toolDirection = tool.index >= _panelIndex ? 1 : -1;
                         _panelIndex = tool.index;
                         _pickingColor = false;
                       }),
@@ -1260,8 +1291,23 @@ class _EditorPageState extends ConsumerState<EditorPage> {
         transitionDuration: _motionDuration,
         reverseTransitionDuration: _motionDuration,
         pageBuilder: (context, animation, secondary) => const SettingsPage(),
-        transitionsBuilder: (context, animation, secondary, child) =>
-            _transition(child, animation),
+        transitionsBuilder: (context, animation, secondary, child) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          );
+          return FadeTransition(
+            opacity: curved,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(.12, 0),
+                end: Offset.zero,
+              ).animate(curved),
+              child: child,
+            ),
+          );
+        },
       ),
     );
   }

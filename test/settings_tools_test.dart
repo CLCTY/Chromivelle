@@ -122,6 +122,25 @@ void main() {
         expect(rect.width, closeTo(width / 4 - 6, .001));
         expect(rect.right, lessThanOrEqualTo(tester.getRect(bar).right));
       }
+      await tester.tap(find.byKey(const ValueKey('tool-blackWhite')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      final incoming = find.byKey(const ValueKey('panel-1'));
+      expect(find.byKey(const ValueKey('panel-0')), findsOneWidget);
+      final fade = tester.widget<FadeTransition>(
+        find
+            .ancestor(of: incoming, matching: find.byType(FadeTransition))
+            .first,
+      );
+      final slide = tester.widget<SlideTransition>(
+        find
+            .ancestor(of: incoming, matching: find.byType(SlideTransition))
+            .first,
+      );
+      expect(fade.opacity.value, inExclusiveRange(0, 1));
+      expect(slide.position.value.dx, inExclusiveRange(0, .12));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('panel-0')), findsNothing);
       await tester.drag(bar, const Offset(-320, 0));
       await tester.pumpAndSettle();
       for (final tool in [
